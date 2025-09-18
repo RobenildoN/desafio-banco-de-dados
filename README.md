@@ -1,194 +1,146 @@
-# desafio-banco-de-dados
+# 🛒 Banco de Dados de E-commerce
 
-Segue a Query para gerar o banco de dados é para popular
+Este projeto consiste na modelagem e implementação de um banco de dados
+para um cenário de **E-commerce**, abrangendo clientes **Pessoa Física
+(PF)** e **Pessoa Jurídica (PJ)**, produtos, fornecedores, vendedores,
+pedidos, pagamentos e entregas.
 
--- ==============================
--- Criar banco de dados
--- ==============================
+O objetivo é estruturar as entidades principais, aplicar restrições de
+integridade, criar relacionamentos e desenvolver consultas SQL que
+respondam a perguntas de negócio típicas de um sistema de vendas online.
 
-drop database if exists ecommerce;
-create database ecommerce;
-use ecommerce;
+------------------------------------------------------------------------
 
--- ==============================
--- CRIAÇÃO DAS TABELAS
--- ==============================
+## 📂 Estrutura do Banco
 
-create table client (
-    idClient int auto_increment primary key,
-    Fname varchar(45) not null,
-    Minit char(1),
-    Lname varchar(45),
-    CPF char(11) not null unique,
-    Address varchar(100)
-);
+### Principais Tabelas
 
-create table clientPF (
-    idClientPF int primary key,
-    CPF char(11) not null unique,
-    birthDate date,
-    foreign key (idClientPF) references client(idClient)
-);
+-   **client** → armazena os clientes (base única, podendo ser PF ou
+    PJ)\
+-   **clientPF** → informações complementares de clientes Pessoa Física\
+-   **clientPJ** → informações complementares de clientes Pessoa
+    Jurídica\
+-   **payments** → formas de pagamento cadastradas\
+-   **orders** → pedidos feitos por clientes, vinculados a pagamentos\
+-   **delivery** → informações de entrega, status e código de rastreio\
+-   **product** → catálogo de produtos (eletrônicos, vestuário,
+    brinquedos, alimentos e móveis)\
+-   **productStorage** → locais e quantidades em estoque\
+-   **supplier** → fornecedores que disponibilizam produtos\
+-   **seller** → vendedores do marketplace\
+-   **productSupplier** → tabela associativa de fornecedores e produtos\
+-   **productOrder** → tabela associativa de pedidos e produtos
 
-create table clientPJ (
-    idClientPJ int primary key,
-    CNPJ char(15) not null unique,
-    socialReason varchar(100),
-    foreign key (idClientPJ) references client(idClient)
-);
+### Diagrama Entidade-Relacionamento (DER)
 
-create table payments (
-    idPayment int auto_increment primary key,
-    typePayment enum('Boleto','Cartão','Pix','Dois cartões') not null
-);
+O modelo contempla todos os relacionamentos entre clientes, produtos,
+pedidos, fornecedores e entregas, garantindo integridade referencial com
+**chaves primárias e estrangeiras**.
 
-create table orders (
-    idOrder int auto_increment primary key,
-    idOrderClient int,
-    idPayment int,
-    orderStatus enum('Em processamento','Confirmado','Cancelado') not null,
-    orderDescription varchar(255),
-    sendValue float default 10,
-    foreign key (idOrderClient) references client(idClient),
-    foreign key (idPayment) references payments(idPayment)
-);
+------------------------------------------------------------------------
 
-create table delivery (
-    idDelivery int auto_increment primary key,
-    idOrder int,
-    deliveryStatus enum('A Caminho','Entregue','Atrasado','Cancelado') not null,
-    trackingCode varchar(50),
-    foreign key (idOrder) references orders(idOrder)
-);
+## 📊 Consultas SQL
 
-create table product (
-    idProduct int auto_increment primary key,
-    Pname varchar(100) not null,
-    classification_kids bool default false,
-    category enum('Eletrônico','Vestuário','Brinquedos','Alimentos','Móveis') not null,
-    avaliação float default 0,
-    size varchar(10)
-);
+Foram desenvolvidas queries para diferentes níveis de análise:
 
-create table productStorage (
-    idProdStorage int auto_increment primary key,
-    storageLocation varchar(100),
-    quantity int default 0
-);
+### 1. Recuperações simples (`SELECT`)
 
-create table supplier (
-    idSupplier int auto_increment primary key,
-    socialName varchar(100) not null,
-    CNPJ char(15) not null unique,
-    contact varchar(45)
-);
+Exemplo: listar todos os clientes cadastrados.
 
-create table seller (
-    idSeller int auto_increment primary key,
-    socialName varchar(100) not null,
-    AbstName varchar(100),
-    CNPJ char(15) unique,
-    CPF char(11) unique,
-    location varchar(100),
-    contact varchar(45)
-);
+``` sql
+select idClient, Fname, Lname, CPF, Address from client;
+```
 
-create table productSupplier (
-    idPsSupplier int,
-    idPsProduct int,
-    quantity int not null,
-    primary key (idPsSupplier, idPsProduct),
-    foreign key (idPsSupplier) references supplier(idSupplier),
-    foreign key (idPsProduct) references product(idProduct)
-);
+### 2. Filtros (`WHERE`)
 
-create table productOrder (
-    idPOproduct int,
-    idPOorder int,
-    prodQuantity int default 1,
-    primary key (idPOproduct, idPOorder),
-    foreign key (idPOproduct) references product(idProduct),
-    foreign key (idPOorder) references orders(idOrder)
-);
+Exemplo: pedidos em processamento.
 
--- ==============================
--- INSERÇÃO DE DADOS
--- ==============================
+``` sql
+select idOrder, orderDescription, orderStatus
+from orders
+where orderStatus = 'Em processamento';
+```
 
--- CLIENTES (PF)
-insert into client (Fname, Minit, Lname, CPF, Address) values
-('João','A','Silva','12345678901','Rua A, 100'),
-('Maria','B','Oliveira','23456789012','Rua B, 200'),
-('Carlos','C','Pereira','34567890123','Rua C, 300');
+### 3. Atributos derivados
 
-insert into clientPF (idClientPF, CPF, birthDate) values
-(1,'12345678901','1990-05-12'),
-(2,'23456789012','1985-08-25'),
-(3,'34567890123','1978-02-10');
+Exemplo: cálculo do valor total de pedidos (produtos + frete).
 
--- CLIENTES (PJ)
-insert into client (Fname, Minit, Lname, CPF, Address) values
-('Empresa','X','Tecnologia','00000000000','Av. Paulista, 1000'),
-('Comércio','Y','Alimentos','00000000001','Rua das Indústrias, 200');
+``` sql
+select 
+    o.idOrder,
+    sum(po.prodQuantity * 
+        case p.category
+            when 'Eletrônico' then 3000
+            when 'Vestuário' then 100
+            when 'Brinquedos' then 80
+            when 'Móveis' then 1500
+        end
+    ) + o.sendValue as valor_total
+from orders o
+join productOrder po on o.idOrder = po.idPOorder
+join product p on p.idProduct = po.idPOproduct
+group by o.idOrder, o.sendValue;
+```
 
-insert into clientPJ (idClientPJ, CNPJ, socialReason) values
-(4,'999999999999999','Empresa X Tecnologia LTDA'),
-(5,'888888888888888','Comércio Y Alimentos SA');
+### 4. Ordenações (`ORDER BY`)
 
--- PAGAMENTOS
-insert into payments (typePayment) values 
-('Boleto'),
-('Cartão'),
-('Pix'),
-('Dois cartões');
+Exemplo: fornecedores em ordem alfabética.
 
--- PRODUTOS
-insert into product (Pname, classification_kids, category, avaliação, size) values
-('Notebook', false, 'Eletrônico', 4.8, '15'),
-('Camiseta', false, 'Vestuário', 4.5, 'M'),
-('Boneca', true, 'Brinquedos', 4.7, 'Único'),
-('Sofá', false, 'Móveis', 4.2, '3L');
+``` sql
+select idSupplier, socialName, CNPJ
+from supplier
+order by socialName asc;
+```
 
--- ESTOQUE
-insert into productStorage (storageLocation, quantity) values
-('Centro SP', 50),
-('RJ Depósito', 30),
-('MG Depósito', 20);
+### 5. Agrupamento e filtros de grupo (`HAVING`)
 
--- FORNECEDORES
-insert into supplier (socialName, CNPJ, contact) values
-('Tech Eletrônicos','111111111111111','tech@contato.com'),
-('Moda Brasil','222222222222222','moda@contato.com'),
-('Brinquedos SA','333333333333333','brinq@contato.com'),
-('Moveis LTDA','444444444444444','moveis@contato.com');
+Exemplo: clientes com mais de 1 pedido.
 
--- VENDEDORES
-insert into seller (socialName, AbstName, CNPJ, CPF, location, contact) values
-('Loja 1 Vendas','Loja1','555555555555555',null,'São Paulo','loja1@contato.com'),
-('Loja 2 Vendas','Loja2',null,'99999999999','Rio de Janeiro','loja2@contato.com');
+``` sql
+select c.Fname, c.Lname, count(o.idOrder) as total_pedidos
+from client c
+join orders o on c.idClient = o.idOrderClient
+group by c.idClient
+having count(o.idOrder) > 1;
+```
 
--- PRODUTOS-FORNECEDORES
-insert into productSupplier (idPsSupplier, idPsProduct, quantity) values
-(1,1,10),
-(2,2,50),
-(3,3,40),
-(4,4,15);
+### 6. Junções (`JOIN`)
 
--- PEDIDOS
-insert into orders (idOrderClient, idPayment, orderStatus, orderDescription, sendValue) values
-(1,2,'Confirmado','Compra de notebook e camiseta',20),
-(2,2,'Em processamento','Compra de boneca',15),
-(3,4,'Confirmado','Compra de sofá',50);
+Exemplo: relação de produtos, fornecedores e estoques.
 
--- PRODUTOS-PEDIDOS
-insert into productOrder (idPOproduct, idPOorder, prodQuantity) values
-(1,1,1),  -- João comprou 1 notebook
-(2,1,2),  -- João comprou 2 camisetas
-(3,2,1),  -- Maria comprou 1 boneca
-(4,3,1);  -- Carlos comprou 1 sofá
+``` sql
+select 
+    p.Pname as Produto,
+    s.socialName as Fornecedor,
+    ps.quantity as QtdeFornecedor,
+    st.storageLocation,
+    st.quantity as QtdeEstoque
+from product p
+join productSupplier ps on p.idProduct = ps.idPsProduct
+join supplier s on s.idSupplier = ps.idPsSupplier
+left join productStorage st on st.idProdStorage = ps.idPsSupplier;
+```
 
--- ENTREGAS
-insert into delivery (idOrder, deliveryStatus, trackingCode) values
-(1,'Entregue','BR123456789BR'),
-(2,'A Caminho','BR987654321BR'),
-(3,'Atrasado','BR555444333BR');
+------------------------------------------------------------------------
+
+## ❓ Perguntas de Negócio Respondidas
+
+-   Quantos pedidos foram feitos por cada cliente?\
+-   Algum vendedor também é fornecedor?\
+-   Qual a relação de produtos, fornecedores e estoques?\
+-   Quais os nomes dos fornecedores e seus respectivos produtos?\
+-   Qual o status e rastreio das entregas realizadas?
+
+------------------------------------------------------------------------
+
+## 🚀 Tecnologias
+
+-   **MySQL** -- modelagem e queries\
+-   **MySQL Workbench** -- diagrama e manipulação visual\
+-   **Git/GitHub** -- versionamento e compartilhamento do projeto
+
+------------------------------------------------------------------------
+
+🔗 Este repositório pode ser utilizado como base para estudos de
+modelagem de bancos de dados relacionais, normalização e consultas SQL
+de diferentes níveis de complexidade.
