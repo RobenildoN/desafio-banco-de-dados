@@ -12,6 +12,7 @@ respondam a perguntas de negócio típicas de um sistema de vendas online.
 ------------------------------------------------------------------------
 
 ## 📂 Estrutura do Banco
+![Estrutura Banco de dados](https://github.com/RobenildoN/desafio-banco-de-dados/blob/main/Estrutura%20Banco%20de%20dados.png)
 
 ### Principais Tabelas
 
